@@ -559,6 +559,178 @@ def save_audit_decisions():
     return jsonify({"ok": True, "rejected": rejected, "total": len(data)})
 
 
+# ── Transcript review routes ──────────────────────────────────────────────────
+
+TRANSCRIPT_STATUSES = {"none", "raw", "reviewed", "aligned", "rejected"}
+TRANSCRIPTS_DIR = REPO / "data" / "transcripts"
+
+
+def _load_transcript_text(entry: dict) -> str | None:
+    """Return text content of the transcript file, or None."""
+    t = entry.get("transcription") or {}
+    path_str = t.get("text_path")
+    if not path_str:
+        return None
+    path = REPO / path_str
+    if not path.exists():
+        return None
+    return path.read_text(encoding="utf-8")
+
+
+def _save_all_entries(entries: list[dict]):
+    """Write entries list back to entries.jsonl."""
+    path = INDEX_DIR / "entries.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        for e in entries:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    # Invalidate cache
+    _file_cache.pop(str(path), None)
+
+
+@app.route("/transcripts")
+def transcript_list():
+    """Transcript review list page."""
+    all_entries = load_entries()
+    filter_status = request.args.get("status", "raw")  # raw | reviewed | rejected | none | all
+
+    # Enrich with transcript text snippets
+    enriched = []
+    for e in all_entries:
+        t = e.get("transcription") or {}
+        status = t.get("status", "none")
+        if filter_status != "all" and status != filter_status:
+            continue
+        ee = dict(e)
+        ee["_t_status"]  = status
+        ee["_t_text"]    = _load_transcript_text(e)
+        ee["_t_snippet"] = (ee["_t_text"] or "")[:120].replace("\n", " ")
+        ee["_thumb_url"] = _entry_image_url(e, "thumbnail")
+        enriched.append(ee)
+
+    # Status counts for filter tabs
+    all_ents = load_entries()
+    counts = {"none": 0, "raw": 0, "reviewed": 0, "rejected": 0, "aligned": 0}
+    for e in all_ents:
+        s = (e.get("transcription") or {}).get("status", "none")
+        counts[s] = counts.get(s, 0) + 1
+    counts["all"] = len(all_ents)
+
+    return render_template(
+        "transcript_list.html",
+        entries=enriched,
+        filter_status=filter_status,
+        counts=counts,
+    )
+
+
+@app.route("/transcript/<entry_id>")
+def transcript_review(entry_id: str):
+    """Single-entry transcript review page."""
+    all_entries = load_entries()
+    entry_map   = {e["entry_id"]: e for e in all_entries}
+
+    if entry_id not in entry_map:
+        abort(404)
+
+    entry   = entry_map[entry_id]
+    t       = entry.get("transcription") or {}
+    status  = t.get("status", "none")
+    text    = _load_transcript_text(entry)
+
+    # Build ordered list for prev/next navigation
+    filter_status = request.args.get("from", "raw")
+    ordered = [e["entry_id"] for e in all_entries
+               if (filter_status == "all"
+                   or (e.get("transcription") or {}).get("status", "none") == filter_status)]
+    try:
+        pos  = ordered.index(entry_id)
+        prev_id = ordered[pos - 1] if pos > 0 else None
+        next_id = ordered[pos + 1] if pos < len(ordered) - 1 else None
+    except ValueError:
+        pos, prev_id, next_id = 0, None, None
+
+    return render_template(
+        "transcript_review.html",
+        entry=entry,
+        t_status=status,
+        t_text=text or "",
+        t_rights=t.get("rights") or {},
+        thumb_url=_entry_image_url(entry, "thumbnail"),
+        orig_url=_entry_image_url(entry, "original"),
+        prev_id=prev_id,
+        next_id=next_id,
+        pos=pos + 1,
+        total=len(ordered),
+        filter_status=filter_status,
+    )
+
+
+@app.route("/api/transcript/<entry_id>", methods=["GET"])
+def get_transcript(entry_id: str):
+    """Return transcript text and metadata for an entry."""
+    all_entries = load_entries()
+    entry_map   = {e["entry_id"]: e for e in all_entries}
+    if entry_id not in entry_map:
+        return jsonify({"error": "not found"}), 404
+
+    entry = entry_map[entry_id]
+    t     = entry.get("transcription") or {}
+    text  = _load_transcript_text(entry)
+    return jsonify({
+        "entry_id": entry_id,
+        "status":   t.get("status", "none"),
+        "text":     text,
+        "created_by": t.get("created_by"),
+        "rights":   t.get("rights") or {},
+    })
+
+
+@app.route("/api/transcript/<entry_id>", methods=["POST"])
+def save_transcript(entry_id: str):
+    """Save corrected transcript text and optionally promote status."""
+    all_entries = load_entries()
+    entry_index = {e["entry_id"]: i for i, e in enumerate(all_entries)}
+
+    if entry_id not in entry_index:
+        return jsonify({"error": "not found"}), 404
+
+    payload    = request.get_json(force=True)
+    new_text   = payload.get("text", "")
+    new_status = payload.get("status", "reviewed")
+
+    if new_status not in TRANSCRIPT_STATUSES:
+        return jsonify({"error": f"invalid status: {new_status}"}), 400
+
+    idx   = entry_index[entry_id]
+    entry = dict(all_entries[idx])
+    t     = dict(entry.get("transcription") or {})
+
+    # Determine / create text_path
+    rel_path = t.get("text_path") or f"data/transcripts/{entry_id}.txt"
+    abs_path = REPO / rel_path
+
+    # Write the transcript file
+    TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    abs_path.write_text(new_text, encoding="utf-8")
+
+    # Promote verification_status when human reviews
+    rights = dict(t.get("rights") or {})
+    if new_status in ("reviewed", "aligned"):
+        rights["verification_status"] = "primary_page_checked"
+        import datetime
+        rights["verified_at"] = datetime.date.today().isoformat()
+
+    t["status"]    = new_status
+    t["text_path"] = rel_path
+    t["rights"]    = rights
+    entry["transcription"] = t
+    all_entries[idx] = entry
+
+    _save_all_entries(all_entries)
+    return jsonify({"ok": True, "entry_id": entry_id, "status": new_status,
+                    "chars": len(new_text)})
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
