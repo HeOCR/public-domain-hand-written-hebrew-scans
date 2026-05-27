@@ -127,13 +127,18 @@ def load_audit_decisions(live_ids: set[str] | None = None) -> dict[str, dict]:
     return data
 
 
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
 def _entry_image_url(entry: dict, role: str = "thumbnail") -> str | None:
-    """Return the app URL for serving an entry's image file."""
+    """Return the app URL for serving an entry's image file (images only, no PDFs)."""
     other = "original" if role == "thumbnail" else "thumbnail"
     primary, fallback = [], []
     for f in entry.get("files", []):
         lp = f.get("local_path")
         if not lp:
+            continue
+        # Skip non-image files (PDFs etc.) — they can't be displayed in <img>
+        if Path(lp).suffix.lower() not in _IMAGE_EXTS:
             continue
         if f["role"] == role:
             primary.append(lp)
@@ -563,6 +568,31 @@ def save_audit_decisions():
 
 TRANSCRIPT_STATUSES = {"none", "raw", "reviewed", "aligned", "rejected"}
 TRANSCRIPTS_DIR = REPO / "data" / "transcripts"
+CANDIDATES_DIR  = TRANSCRIPTS_DIR / "candidates"
+
+CANDIDATE_SOURCES = ["transkribus", "escriptorium", "consolidated"]
+CANDIDATE_LABELS  = {
+    "transkribus":   "Transkribus",
+    "escriptorium":  "eScriptorium",
+    "consolidated":  "Consolidated",
+}
+
+
+def _list_candidates(entry_id: str) -> dict[str, str | None]:
+    """Return {source: text} for all three candidates; None if file absent."""
+    result = {}
+    for src in CANDIDATE_SOURCES:
+        p = CANDIDATES_DIR / f"{entry_id}.{src}.txt"
+        result[src] = p.read_text(encoding="utf-8") if p.exists() else None
+    return result
+
+
+def _candidates_ready(entry_id: str) -> int:
+    """Count how many candidate files exist for this entry."""
+    return sum(
+        1 for src in CANDIDATE_SOURCES
+        if (CANDIDATES_DIR / f"{entry_id}.{src}.txt").exists()
+    )
 
 
 def _load_transcript_text(entry: dict) -> str | None:
@@ -590,36 +620,69 @@ def _save_all_entries(entries: list[dict]):
 @app.route("/transcripts")
 def transcript_list():
     """Transcript review list page."""
-    all_entries = load_entries()
-    filter_status = request.args.get("status", "raw")  # raw | reviewed | rejected | none | all
+    all_entries   = load_entries()
+    filter_status = request.args.get("status", "pending")
+    # "pending" = has candidates but no approved transcript yet
 
-    # Enrich with transcript text snippets
     enriched = []
     for e in all_entries:
-        t = e.get("transcription") or {}
+        t      = e.get("transcription") or {}
         status = t.get("status", "none")
-        if filter_status != "all" and status != filter_status:
+        eid    = e["entry_id"]
+        n_cand = _candidates_ready(eid)
+
+        show = False
+        if filter_status == "all":
+            show = True
+        elif filter_status == "pending":
+            show = n_cand > 0 and status in ("none", "raw", "rejected")
+        elif filter_status == "reviewed":
+            show = status == "reviewed"
+        elif filter_status == "aligned":
+            show = status == "aligned"
+        elif filter_status == "none":
+            show = n_cand == 0 and status == "none"
+        else:
+            show = status == filter_status
+
+        if not show:
             continue
+
         ee = dict(e)
-        ee["_t_status"]  = status
-        ee["_t_text"]    = _load_transcript_text(e)
-        ee["_t_snippet"] = (ee["_t_text"] or "")[:120].replace("\n", " ")
-        ee["_thumb_url"] = _entry_image_url(e, "thumbnail")
+        ee["_t_status"]    = status
+        ee["_t_text"]      = _load_transcript_text(e)
+        ee["_t_snippet"]   = (ee["_t_text"] or "")[:120].replace("\n", " ")
+        ee["_thumb_url"]   = _entry_image_url(e, "thumbnail")
+        ee["_n_candidates"] = n_cand
+        # Per-source availability flags for the dot indicators
+        ee["_cand_ready"] = {
+            src: (CANDIDATES_DIR / f"{eid}.{src}.txt").exists()
+            for src in CANDIDATE_SOURCES
+        }
         enriched.append(ee)
 
-    # Status counts for filter tabs
-    all_ents = load_entries()
-    counts = {"none": 0, "raw": 0, "reviewed": 0, "rejected": 0, "aligned": 0}
-    for e in all_ents:
-        s = (e.get("transcription") or {}).get("status", "none")
-        counts[s] = counts.get(s, 0) + 1
-    counts["all"] = len(all_ents)
+    # Counts for filter tabs
+    counts = {"none": 0, "reviewed": 0, "aligned": 0, "pending": 0, "all": 0}
+    for e in all_entries:
+        s   = (e.get("transcription") or {}).get("status", "none")
+        nc  = _candidates_ready(e["entry_id"])
+        counts["all"] += 1
+        if nc > 0 and s in ("none", "raw", "rejected"):
+            counts["pending"] += 1
+        elif s == "reviewed":
+            counts["reviewed"] += 1
+        elif s == "aligned":
+            counts["aligned"] += 1
+        elif nc == 0 and s == "none":
+            counts["none"] += 1
 
     return render_template(
         "transcript_list.html",
         entries=enriched,
         filter_status=filter_status,
         counts=counts,
+        candidate_sources=CANDIDATE_SOURCES,
+        candidate_labels=CANDIDATE_LABELS,
     )
 
 
@@ -632,19 +695,30 @@ def transcript_review(entry_id: str):
     if entry_id not in entry_map:
         abort(404)
 
-    entry   = entry_map[entry_id]
-    t       = entry.get("transcription") or {}
-    status  = t.get("status", "none")
-    text    = _load_transcript_text(entry)
+    entry      = entry_map[entry_id]
+    t          = entry.get("transcription") or {}
+    status     = t.get("status", "none")
+    text       = _load_transcript_text(entry)
+    candidates = _list_candidates(entry_id)
 
     # Build ordered list for prev/next navigation
-    filter_status = request.args.get("from", "raw")
-    ordered = [e["entry_id"] for e in all_entries
-               if (filter_status == "all"
-                   or (e.get("transcription") or {}).get("status", "none") == filter_status)]
+    filter_status = request.args.get("from", "pending")
+
+    def _matches_filter(e: dict) -> bool:
+        s  = (e.get("transcription") or {}).get("status", "none")
+        nc = _candidates_ready(e["entry_id"])
+        if filter_status == "all":
+            return True
+        if filter_status == "pending":
+            return nc > 0 and s in ("none", "raw", "rejected")
+        if filter_status == "reviewed":
+            return s == "reviewed"
+        return s == filter_status
+
+    ordered = [e["entry_id"] for e in all_entries if _matches_filter(e)]
     try:
-        pos  = ordered.index(entry_id)
-        prev_id = ordered[pos - 1] if pos > 0 else None
+        pos     = ordered.index(entry_id)
+        prev_id = ordered[pos - 1] if pos > 0     else None
         next_id = ordered[pos + 1] if pos < len(ordered) - 1 else None
     except ValueError:
         pos, prev_id, next_id = 0, None, None
@@ -655,6 +729,9 @@ def transcript_review(entry_id: str):
         t_status=status,
         t_text=text or "",
         t_rights=t.get("rights") or {},
+        candidates=candidates,
+        candidate_sources=CANDIDATE_SOURCES,
+        candidate_labels=CANDIDATE_LABELS,
         thumb_url=_entry_image_url(entry, "thumbnail"),
         orig_url=_entry_image_url(entry, "original"),
         prev_id=prev_id,
@@ -667,22 +744,36 @@ def transcript_review(entry_id: str):
 
 @app.route("/api/transcript/<entry_id>", methods=["GET"])
 def get_transcript(entry_id: str):
-    """Return transcript text and metadata for an entry."""
+    """Return transcript text, metadata, and all candidates for an entry."""
     all_entries = load_entries()
     entry_map   = {e["entry_id"]: e for e in all_entries}
     if entry_id not in entry_map:
         return jsonify({"error": "not found"}), 404
 
-    entry = entry_map[entry_id]
-    t     = entry.get("transcription") or {}
-    text  = _load_transcript_text(entry)
+    entry      = entry_map[entry_id]
+    t          = entry.get("transcription") or {}
+    text       = _load_transcript_text(entry)
+    candidates = _list_candidates(entry_id)
     return jsonify({
-        "entry_id": entry_id,
-        "status":   t.get("status", "none"),
-        "text":     text,
+        "entry_id":   entry_id,
+        "status":     t.get("status", "none"),
+        "text":       text,
         "created_by": t.get("created_by"),
-        "rights":   t.get("rights") or {},
+        "rights":     t.get("rights") or {},
+        "candidates": candidates,
     })
+
+
+@app.route("/api/candidate/<entry_id>/<source>", methods=["GET"])
+def get_candidate(entry_id: str, source: str):
+    """Return a single candidate transcript text."""
+    if source not in CANDIDATE_SOURCES:
+        return jsonify({"error": f"unknown source: {source}"}), 400
+    p = CANDIDATES_DIR / f"{entry_id}.{source}.txt"
+    if not p.exists():
+        return jsonify({"entry_id": entry_id, "source": source, "text": None}), 404
+    return jsonify({"entry_id": entry_id, "source": source,
+                    "text": p.read_text(encoding="utf-8")})
 
 
 @app.route("/api/transcript/<entry_id>", methods=["POST"])

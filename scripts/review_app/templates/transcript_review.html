@@ -2,225 +2,173 @@
 {% block title %}{{ entry.entry_id }} — Transcript Review{% endblock %}
 
 {% block extra_styles %}
-/* ── Layout ─────────────────────────────────────────────── */
-.review-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  height: calc(100vh - 130px);
-  min-height: 500px;
-}
-@media (max-width: 900px) {
-  .review-layout { grid-template-columns: 1fr; height: auto; }
-}
-
-/* ── Navigation bar ─────────────────────────────────────── */
+/* ── Nav bar ────────────────────────────────────────────── */
 .nav-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  font-size: 13px;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px; font-size: 13px;
 }
 .nav-bar .back-link { color: var(--muted); }
 .nav-bar .spacer { flex: 1; }
 .nav-pos { color: var(--muted); font-size: 12px; }
 .nav-btn {
-  padding: 5px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all .15s;
+  padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-size: 12px; cursor: pointer;
+  text-decoration: none; transition: all .15s;
 }
 .nav-btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-.nav-btn[disabled], .nav-btn.disabled {
-  opacity: .3;
-  pointer-events: none;
-  cursor: default;
+.nav-btn.disabled { opacity: .3; pointer-events: none; }
+
+/* ── Main layout ────────────────────────────────────────── */
+.review-layout {
+  display: grid;
+  grid-template-columns: 38% 62%;
+  gap: 18px;
+  height: calc(100vh - 130px);
+  min-height: 560px;
+}
+@media (max-width: 960px) {
+  .review-layout { grid-template-columns: 1fr; height: auto; }
 }
 
 /* ── Scan panel ─────────────────────────────────────────── */
-.scan-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow: hidden;
-}
+.scan-panel { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
 .scan-meta {
-  font-size: 12px;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  font-size: 12px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 .scan-meta strong { color: var(--text); }
 .scan-wrap {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  position: relative;
-  min-height: 300px;
+  flex: 1; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; position: relative; min-height: 280px;
 }
-.scan-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  cursor: zoom-in;
-  transition: opacity .2s;
-}
-.scan-wrap img:hover { opacity: .9; }
+.scan-wrap img { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
 .scan-no-img {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 13px;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px;
 }
-.scan-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.scan-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── Right panel ────────────────────────────────────────── */
+.right-panel {
+  display: flex; flex-direction: column; gap: 12px; overflow: hidden;
 }
 
-/* ── Editor panel ───────────────────────────────────────── */
-.editor-panel {
-  display: flex;
+/* ── Candidate tabs ─────────────────────────────────────── */
+.cand-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.cand-tab {
+  padding: 5px 14px; border-radius: 6px 6px 0 0;
+  border: 1px solid var(--border); border-bottom: none;
+  background: var(--surface2); color: var(--muted);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all .15s;
+}
+.cand-tab:hover { color: var(--text); }
+.cand-tab.active { background: var(--surface); color: var(--text); border-color: var(--border); }
+.cand-tab.missing { opacity: .4; cursor: default; }
+.cand-tab.edit-tab { margin-left: auto; color: var(--accent); }
+.cand-tab.edit-tab.active { background: var(--surface); border-color: var(--accent); }
+
+/* ── Candidate text display ─────────────────────────────── */
+.cand-panels { flex: 1; position: relative; overflow: hidden; }
+.cand-panel {
+  display: none;
   flex-direction: column;
-  gap: 12px;
-  overflow: hidden;
+  gap: 8px;
+  height: 100%;
 }
-.editor-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.editor-header h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+.cand-panel.active { display: flex; }
+
+.cand-text-wrap {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.status-select {
-  padding: 4px 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font-size: 12px;
-  cursor: pointer;
-}
-#t-editor {
-  flex: 1;
-  width: 100%;
-  min-height: 260px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+.cand-text {
   font-family: "SBL Hebrew", "Ezra SIL", "Frank Ruehl CLM", "Times New Roman", serif;
-  font-size: 17px;
-  line-height: 1.8;
-  padding: 16px;
-  resize: none;
+  font-size: 16px;
+  line-height: 1.9;
   direction: rtl;
   text-align: right;
   white-space: pre-wrap;
-  outline: none;
-  transition: border-color .15s;
-  overflow-y: auto;
+  color: var(--text);
+}
+.cand-text .missing-msg {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--muted);
+  direction: ltr;
+  text-align: left;
+}
+.cand-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── Edit panel ─────────────────────────────────────────── */
+.edit-panel-wrap { display: none; flex-direction: column; gap: 8px; height: 100%; }
+.edit-panel-wrap.active { display: flex; }
+
+#t-editor {
+  flex: 1; width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+  color: var(--text);
+  font-family: "SBL Hebrew", "Ezra SIL", "Frank Ruehl CLM", "Times New Roman", serif;
+  font-size: 16px; line-height: 1.9;
+  padding: 14px 16px; resize: none;
+  direction: rtl; text-align: right; white-space: pre-wrap;
+  outline: none; transition: border-color .15s; overflow-y: auto;
 }
 #t-editor:focus { border-color: var(--accent); }
 
-.editor-footer {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.char-count {
-  font-size: 11px;
-  color: var(--muted);
-  margin-left: auto;
-}
+.edit-footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.char-count { font-size: 11px; color: var(--muted); margin-left: auto; }
 
-/* ── Status badge variants ──────────────────────────────── */
-.badge-raw      { background: #2a2010; color: var(--warn); }
+/* ── Status badges ──────────────────────────────────────── */
 .badge-reviewed { background: #1a3a2e; color: var(--success); }
 .badge-aligned  { background: #1a2240; color: var(--accent); }
 .badge-rejected { background: #3a1a1f; color: var(--danger); }
 .badge-none     { background: #1e1e28; color: var(--muted); }
+.badge-raw      { background: #2a2010; color: var(--warn); }
 
-/* ── Save feedback ──────────────────────────────────────── */
+/* ── Toast ──────────────────────────────────────────────── */
 .save-toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--success);
-  color: #082018;
-  padding: 10px 18px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: all .25s;
-  pointer-events: none;
-  z-index: 999;
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--success); color: #082018;
+  padding: 10px 18px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  opacity: 0; transform: translateY(8px); transition: all .25s;
+  pointer-events: none; z-index: 999;
 }
-.save-toast.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-.save-toast.error {
-  background: var(--danger);
-  color: #fff;
-}
+.save-toast.show { opacity: 1; transform: translateY(0); }
+.save-toast.error { background: var(--danger); color: #fff; }
 
 /* ── Lightbox ───────────────────────────────────────────── */
 #lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.9);
-  z-index: 9999;
-  cursor: zoom-out;
-  align-items: center;
-  justify-content: center;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.92); z-index: 9999;
+  cursor: zoom-out; align-items: center; justify-content: center;
 }
 #lightbox.open { display: flex; }
-#lightbox img {
-  max-width: 95vw;
-  max-height: 95vh;
-  object-fit: contain;
-  border-radius: 4px;
-}
+#lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 4px; }
 {% endblock %}
 
 {% block content %}
-<!-- Nav bar -->
+<!-- Nav -->
 <div class="nav-bar">
   <a href="/transcripts?status={{ filter_status }}" class="back-link">← All transcripts</a>
   <span class="spacer"></span>
   <span class="nav-pos">{{ pos }} / {{ total }}</span>
   {% if prev_id %}
-  <a href="/transcript/{{ prev_id }}?from={{ filter_status }}" class="nav-btn" title="Previous (←)">← Prev</a>
+  <a href="/transcript/{{ prev_id }}?from={{ filter_status }}" class="nav-btn" id="prev-nav-btn">← Prev</a>
   {% else %}
   <span class="nav-btn disabled">← Prev</span>
   {% endif %}
   {% if next_id %}
-  <a href="/transcript/{{ next_id }}?from={{ filter_status }}" class="nav-btn" id="next-btn" title="Next (→)">Next →</a>
+  <a href="/transcript/{{ next_id }}?from={{ filter_status }}" class="nav-btn" id="next-nav-btn">Next →</a>
   {% else %}
   <span class="nav-btn disabled">Next →</span>
   {% endif %}
@@ -229,7 +177,7 @@
 <!-- Two-column layout -->
 <div class="review-layout">
 
-  <!-- LEFT: scan viewer -->
+  <!-- LEFT: scan -->
   <div class="scan-panel">
     <div class="scan-meta">
       <strong>{{ entry.title or entry.entry_id }}</strong>
@@ -241,92 +189,98 @@
       &nbsp;·&nbsp;
       <span class="badge badge-{{ t_status }}">{{ t_status }}</span>
     </div>
-
-    <div class="scan-wrap" id="scan-wrap">
+    <div class="scan-wrap">
       {% if orig_url or thumb_url %}
-      <img id="scan-img"
-           src="{{ orig_url or thumb_url }}"
-           alt="manuscript scan"
-           onclick="openLightbox(this.src)"
-           title="Click to enlarge">
+      <img id="scan-img" src="{{ thumb_url or orig_url }}"
+           alt="manuscript scan" onclick="openLightbox(this.src)" title="Click to enlarge">
       {% else %}
       <div class="scan-no-img">No scan available</div>
       {% endif %}
     </div>
-
     <div class="scan-actions">
       {% if orig_url %}
-      <a href="{{ orig_url }}" target="_blank" class="btn btn-ghost" style="font-size:12px;">
-        ↗ Full image
-      </a>
-      {% endif %}
-      {% if thumb_url and orig_url and thumb_url != orig_url %}
-      <button onclick="toggleScanSize()" class="btn btn-ghost" style="font-size:12px;" id="size-btn">
-        Use thumbnail
-      </button>
+      <a href="{{ orig_url }}" target="_blank" class="btn btn-ghost" style="font-size:12px;">↗ Full image</a>
       {% endif %}
       {% if entry.rights and entry.rights.license_expression %}
-      <span style="font-size:11px; color:var(--muted); margin-left:auto;">
-        {{ entry.rights.license_expression }}
-      </span>
+      <span style="font-size:11px;color:var(--muted);margin-left:auto;">{{ entry.rights.license_expression }}</span>
       {% endif %}
     </div>
   </div>
 
-  <!-- RIGHT: editor -->
-  <div class="editor-panel">
-    <div class="editor-header">
-      <h2>Transcript</h2>
-      <select class="status-select" id="status-sel">
-        <option value="raw"      {% if t_status == "raw"      %}selected{% endif %}>raw (AI draft)</option>
-        <option value="reviewed" {% if t_status == "reviewed" %}selected{% endif %}>reviewed</option>
-        <option value="aligned"  {% if t_status == "aligned"  %}selected{% endif %}>aligned</option>
-        <option value="rejected" {% if t_status == "rejected" %}selected{% endif %}>rejected</option>
-      </select>
+  <!-- RIGHT: candidates + editor -->
+  <div class="right-panel">
+
+    <!-- Tab bar -->
+    <div class="cand-tabs" id="tab-bar">
+      {% for src in candidate_sources %}
+      {% set has = candidates[src] is not none %}
+      <button class="cand-tab {% if loop.first and has %}active{% endif %} {% if not has %}missing{% endif %}"
+              data-panel="{{ src }}"
+              onclick="switchTab('{{ src }}')"
+              {% if not has %}disabled title="{{ candidate_labels[src] }}: not yet available"{% endif %}>
+        {{ candidate_labels[src] }}{% if not has %} ·&#x25CB;{% endif %}
+      </button>
+      {% endfor %}
+      <button class="cand-tab edit-tab {% if t_status in ('reviewed','aligned') %}active{% endif %}"
+              data-panel="edit"
+              onclick="switchTab('edit')">
+        ✎ Edit{% if t_status in ('reviewed','aligned') %} (saved){% endif %}
+      </button>
     </div>
 
-    <!-- RTL textarea editor — preserves newlines correctly -->
-    <textarea id="t-editor"
-              spellcheck="false"
-              lang="he"
-              aria-label="Transcript text editor"
-              dir="rtl">{{ t_text | e }}</textarea>
+    <!-- Candidate panels -->
+    <div class="cand-panels" id="panels-wrap">
 
-    <div class="editor-footer">
-      <button class="btn btn-success" onclick="saveTranscript('reviewed')" title="Ctrl+Enter">
-        ✓ Approve
-      </button>
-      <button class="btn btn-primary" onclick="saveTranscript(null)" title="Ctrl+S">
-        Save
-      </button>
-      <button class="btn btn-danger" onclick="saveTranscript('rejected')">
-        ✗ Reject
-      </button>
-      <button class="btn btn-ghost" onclick="resetToAI()" title="Discard edits and reload AI draft">
-        ↺ Reset
-      </button>
-      <span class="char-count" id="char-count"></span>
-    </div>
+      {% for src in candidate_sources %}
+      {% set text = candidates[src] %}
+      <div class="cand-panel {% if loop.first and text is not none %}active{% endif %}" id="panel-{{ src }}">
+        <div class="cand-text-wrap">
+          <div class="cand-text" id="cand-text-{{ src }}">
+            {%- if text is not none -%}
+              {{ text | e }}
+            {%- else -%}
+              <span class="missing-msg">— {{ candidate_labels[src] }} output not yet available —</span>
+            {%- endif -%}
+          </div>
+        </div>
+        <div class="cand-actions">
+          {% if text is not none %}
+          <button class="btn btn-ghost" style="font-size:12px;"
+                  onclick="useCandidate('{{ src }}')">
+            Use as working copy →
+          </button>
+          {% endif %}
+          <span style="font-size:11px;color:var(--muted);">
+            {{ candidate_labels[src] }}
+            {% if text is not none %}· {{ text | length }} chars{% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
 
-    {% if t_rights %}
-    <div style="font-size:11px; color:var(--muted); padding:4px 0; border-top:1px solid var(--border);">
-      Transcript rights: {{ t_rights.get("verification_status", "—") }}
-      {% if t_rights.get("license_expression") %}
-        · {{ t_rights.license_expression }}
-      {% endif %}
-      {% if t_rights.get("evidence_text") %}
-        <br><span style="opacity:.7;">{{ t_rights.evidence_text[:120] }}</span>
-      {% endif %}
+      <!-- Edit panel -->
+      <div class="edit-panel-wrap {% if t_status in ('reviewed','aligned') %}active{% endif %}" id="panel-edit">
+        <textarea id="t-editor" spellcheck="false" lang="he" dir="rtl">{{ t_text | e }}</textarea>
+        <div class="edit-footer">
+          <button class="btn btn-success" onclick="saveTranscript('reviewed')" title="Ctrl+Enter">✓ Approve</button>
+          <button class="btn btn-primary" onclick="saveTranscript(null)"       title="Ctrl+S">Save</button>
+          <button class="btn btn-danger"  onclick="saveTranscript('rejected')">✗ Reject</button>
+          <select class="status-select" id="status-sel" style="padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+            <option value="raw"      {% if t_status == "raw"      %}selected{% endif %}>raw</option>
+            <option value="reviewed" {% if t_status == "reviewed" %}selected{% endif %}>reviewed</option>
+            <option value="aligned"  {% if t_status == "aligned"  %}selected{% endif %}>aligned</option>
+            <option value="rejected" {% if t_status == "rejected" %}selected{% endif %}>rejected</option>
+          </select>
+          <span class="char-count" id="char-count"></span>
+        </div>
+      </div>
     </div>
-    {% endif %}
   </div>
 
 </div>
 
-<!-- Save toast -->
 <div class="save-toast" id="toast"></div>
 
-<!-- Lightbox -->
 <div id="lightbox" onclick="closeLightbox()">
   <img id="lb-img" src="" alt="full scan">
 </div>
@@ -336,19 +290,20 @@
 <script>
 const ENTRY_ID    = {{ entry.entry_id | tojson }};
 const FILTER_FROM = {{ filter_status | tojson }};
-const NEXT_ID     = {{ next_id | tojson if next_id else 'null' }};
+const NEXT_ID     = {{ (next_id | tojson) if next_id else 'null' }};
+const PREV_ID     = {{ (prev_id | tojson) if prev_id else 'null' }};
 
 const editor    = document.getElementById('t-editor');
 const statusSel = document.getElementById('status-sel');
 const charCount = document.getElementById('char-count');
 const toast     = document.getElementById('toast');
 
-// ── Live char count ────────────────────────────────────────
+// ── Char count ─────────────────────────────────────────────
 function updateCharCount() {
   charCount.textContent = editor.value.length + ' chars';
 }
 editor.addEventListener('input', updateCharCount);
-updateCharCount();  // seed on page load
+updateCharCount();
 
 // ── Toast ──────────────────────────────────────────────────
 let toastTimer;
@@ -359,11 +314,61 @@ function showToast(msg, isError=false) {
   toastTimer = setTimeout(() => toast.className = 'save-toast', 2500);
 }
 
+// ── Tab switching ──────────────────────────────────────────
+let activeTab = null;
+
+function switchTab(panelId) {
+  // Hide all panels
+  document.querySelectorAll('.cand-panel, .edit-panel-wrap').forEach(p => {
+    p.classList.remove('active');
+  });
+  // Deactivate all tabs
+  document.querySelectorAll('.cand-tab').forEach(t => t.classList.remove('active'));
+
+  // Show target panel
+  const panel = document.getElementById('panel-' + panelId);
+  if (panel) panel.classList.add('active');
+
+  // Activate tab
+  const tab = document.querySelector(`[data-panel="${panelId}"]`);
+  if (tab) tab.classList.add('active');
+
+  activeTab = panelId;
+
+  if (panelId === 'edit') updateCharCount();
+}
+
+// Auto-select first available tab
+(function() {
+  const firstAvail = document.querySelector('.cand-tab:not(.missing):not(.edit-tab)');
+  if (firstAvail) {
+    const status = {{ t_status | tojson }};
+    if (!['reviewed','aligned'].includes(status)) {
+      switchTab(firstAvail.dataset.panel);
+    } else {
+      switchTab('edit');
+    }
+  }
+})();
+
+// ── Use candidate as working copy ──────────────────────────
+function useCandidate(src) {
+  const textEl = document.getElementById('cand-text-' + src);
+  if (!textEl) return;
+  const text = textEl.innerText || textEl.textContent;
+  // Check it's not the "not yet available" placeholder
+  if (textEl.querySelector('.missing-msg')) return;
+  editor.value = text;
+  statusSel.value = 'raw';
+  switchTab('edit');
+  updateCharCount();
+  showToast(`${src} candidate loaded into editor`);
+}
+
 // ── Save ───────────────────────────────────────────────────
 async function saveTranscript(overrideStatus) {
   const text   = editor.value;
   const status = overrideStatus || statusSel.value;
-
   try {
     const r = await fetch(`/api/transcript/${ENTRY_ID}`, {
       method: 'POST',
@@ -375,67 +380,34 @@ async function saveTranscript(overrideStatus) {
       statusSel.value = status;
       showToast(`Saved · ${data.chars} chars · ${status}`);
       updateCharCount();
+      // Update the edit tab label
+      const editTab = document.querySelector('[data-panel="edit"]');
+      if (editTab) editTab.textContent = status === 'reviewed' || status === 'aligned'
+        ? '✎ Edit (saved)' : '✎ Edit';
     } else {
       showToast('Error: ' + (data.error || 'unknown'), true);
     }
-  } catch (e) {
+  } catch(e) {
     showToast('Network error: ' + e.message, true);
-  }
-}
-
-// ── Reset to AI draft ──────────────────────────────────────
-async function resetToAI() {
-  if (!confirm('Discard your edits and reload the original AI draft?')) return;
-  try {
-    const r    = await fetch(`/api/transcript/${ENTRY_ID}`);
-    const data = await r.json();
-    editor.value    = data.text || '';
-    statusSel.value = data.status || 'raw';
-    updateCharCount();
-    showToast('Reset to AI draft');
-  } catch (e) {
-    showToast('Failed to reload: ' + e.message, true);
   }
 }
 
 // ── Keyboard shortcuts ─────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  // Ctrl+S / Cmd+S — save
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    saveTranscript(null);
-    return;
+    e.preventDefault(); saveTranscript(null); return;
   }
-  // Ctrl+Enter / Cmd+Enter — approve
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    saveTranscript('reviewed');
-    return;
+    e.preventDefault(); saveTranscript('reviewed'); return;
   }
-  // Arrow keys for prev/next (only when editor is NOT focused)
+  // Arrow keys for next/prev when not in textarea
   if (document.activeElement !== editor) {
-    if (e.key === 'ArrowRight' && document.getElementById('prev-nav-btn')) {
-      document.getElementById('prev-nav-btn').click();
-    }
-    if (e.key === 'ArrowLeft' && NEXT_ID) {
+    if (e.key === 'ArrowRight' && PREV_ID)
+      window.location.href = `/transcript/${PREV_ID}?from=${FILTER_FROM}`;
+    if (e.key === 'ArrowLeft' && NEXT_ID)
       window.location.href = `/transcript/${NEXT_ID}?from=${FILTER_FROM}`;
-    }
   }
 });
-
-// ── Scan size toggle ───────────────────────────────────────
-let usingOrig = true;
-const ORIG_URL  = {{ orig_url  | tojson if orig_url  else 'null' }};
-const THUMB_URL = {{ thumb_url | tojson if thumb_url else 'null' }};
-
-function toggleScanSize() {
-  const img = document.getElementById('scan-img');
-  const btn = document.getElementById('size-btn');
-  if (!img) return;
-  usingOrig = !usingOrig;
-  img.src   = usingOrig ? (ORIG_URL || THUMB_URL) : (THUMB_URL || ORIG_URL);
-  btn.textContent = usingOrig ? 'Use thumbnail' : 'Use original';
-}
 
 // ── Lightbox ───────────────────────────────────────────────
 function openLightbox(src) {
@@ -445,13 +417,6 @@ function openLightbox(src) {
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
 }
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLightbox();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 </script>
-
-<!-- Prev link for JS keyboard nav -->
-{% if prev_id %}
-<a id="prev-nav-btn" href="/transcript/{{ prev_id }}?from={{ filter_status }}" style="display:none;"></a>
-{% endif %}
 {% endblock %}
