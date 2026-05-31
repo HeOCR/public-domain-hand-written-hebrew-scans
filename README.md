@@ -1,15 +1,43 @@
 # HASH — Hebrew Archive of Scanned Handwriting
 
+[![CI](https://github.com/HeOCR/hash/actions/workflows/ci.yml/badge.svg)](https://github.com/HeOCR/hash/actions/workflows/ci.yml)
+[![Metadata license: CC0](https://img.shields.io/badge/metadata%20license-CC0%201.0-blue)](LICENSE)
+[![Scans indexed](https://img.shields.io/badge/scans%20indexed-198-0f766e)](data/index/entries.jsonl)
+
 A simple, agent-friendly dataset of scanned handwritten Hebrew-script documents
 — notes, letters, notebook pages, drafts, forms, and similar material — from
 the 18th century onward. The focus is everyday cursive Hebrew handwriting
 (כתב יד, not דפוס); Yiddish documents written in the same Hebrew round script
 are also in scope.
 
+Created by [Shay Palachy Affek](http://www.shaypalachy.com/).
+
 The target corpus is limited to scans that can be redistributed and transformed
 for downstream uses, including substantial remixing and machine-learning
 datasets. The index therefore keeps rights evidence at both source and scan
 level instead of assuming that a collection-level label applies to every page.
+
+## Sample Scans
+
+![Representative HASH scan samples](docs/assets/hash-sample-grid.jpg)
+
+These samples are drawn from scan records whose rights are recorded as public
+domain, Public Domain Mark, or Israel public-domain terms in
+[`data/index/entries.jsonl`](data/index/entries.jsonl). Always consult the
+per-scan record before redistributing or transforming a specific image.
+
+## At a Glance
+
+| Field | Current value |
+|---|---|
+| Ingested scans | 198 |
+| Verified sources | 48 |
+| Candidate leads still under research | 15 |
+| Provenance-only rejected source records | 46 |
+| Corpus size on disk | ~283.00 MiB |
+| Repository-authored metadata license | [CC0 1.0](LICENSE) |
+| Per-scan rights policy | [`LICENSE.md`](LICENSE.md) |
+| Canonical scan index | [`data/index/entries.jsonl`](data/index/entries.jsonl) |
 
 ## Dataset Layout
 
@@ -92,3 +120,7 @@ ShareAlike caveat and the rules for remix-friendly release bundles.
   enforces them in CI.
 - Contributors adding new scans should start with
   [`AGENTS.md`](AGENTS.md) for ingest rules, scope, and the pre-PR checklist.
+
+## Credits
+
+Created by [Shay Palachy Affek ](http://www.shaypalachy.com/) [[GitHub](https://github.com/shaypal5)]
